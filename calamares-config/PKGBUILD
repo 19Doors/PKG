@@ -1,0 +1,13 @@
+pkgname=19doors-calamares-config
+_destname="/etc/calamares"
+pkgver=1.0
+pkgrel=1
+pkgdesc="Config for calamares"
+arch=('x86_64')
+url="https://github.com/19Doors/${pkgname}"
+source+=("git+$url.git")
+sha256sums=('SKIP')
+package() {
+    mkdir -p "${pkgdir}${_destname}"
+    cp -r "${srcdir}/${pkgname}/"* "${pkgdir}${_destname}"
+}
