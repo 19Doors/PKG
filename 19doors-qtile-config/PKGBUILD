@@ -1,0 +1,43 @@
+pkgname=19doors-qtile-config
+pkgver=1.0
+pkgrel=0.1
+pkgdesc="Qtile config for 19doors"
+arch=('x86_64')
+url='https://www.github.com/19Doors/Dotfiles-2'
+depends=('git' 'python2' 'python3' 'python-pip' 'make' 'qtile' 'feh' 'picom' 'dunst' 'alsa-utils' 'ranger' 'zsh')
+source+=("git+$url.git")
+sha256sums=('SKIP')
+package() {
+
+    mkdir -p ${pkgdir}/etc/.skel/
+    cu=${pkgdir}/etc/.skel/
+
+    cd Dotfiles-2/Scripts
+    if [ ! -f /bin/yay ]; then
+	git clone https://aur.archlinux.org/yay.git && cd yay && makepkg -si && cd ../
+	sudo rm -R yay 
+    fi
+
+    pip install dbus-next psutil
+
+    mkdir -p $cu/.config 
+    cp -r ../.config/* $cu/.config/
+    cp -r ../.xinitrc $cu/.xinitrc 
+    cp ../wallpaper.jpg $cu/.config.qtile 
+
+    cd ../dmenu
+    sudo make install 
+
+    cd ../Scripts
+
+    # CURSOR
+
+    mkdir -p $cu/.local/share/icons
+    mkdir -p $cu/.icons/default/
+    mkdir -p $cu/.config/gtk-3.0/
+    cp index.theme $cu/.icons/default/index.theme
+    cp settings.ini $cu/.config/gtk-3.0/settings.ini
+
+#    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)
+    
+}
