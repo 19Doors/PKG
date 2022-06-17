@@ -9,8 +9,8 @@ source+=("git+$url.git")
 sha256sums=('SKIP')
 package() {
 
-    mkdir -p ${pkgdir}/etc/.skel/
-    cu=${pkgdir}/etc/.skel/
+    mkdir -p ${pkgdir}/etc/skel/
+    cu=${pkgdir}/etc/skel/
 
     cd Dotfiles-2/Scripts
     if [ ! -f /bin/yay ]; then
