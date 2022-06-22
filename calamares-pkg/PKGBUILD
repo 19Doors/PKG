@@ -1,71 +1,81 @@
-# Maintainer:  David Spink <yorper_protonmail.com>
-# Contributor: Philip Müller <philm_manjaro.org>
+#https://github.com/calamares/calamares/releases
 
-pkgname=19doors-calamares
+pkgname=calamares
+_pkgname=calamares
 pkgver=3.2.59
-pkgrel=0.2
+pkgrel=1
 pkgdesc='Distribution-independent installer framework'
-arch=('x86_64')
+arch=('i686' 'x86_64')
 license=(GPL)
-url="https://github.com/calamares/calamares"
+url="https://github.com/calamares/calamares/releases"
 license=('LGPL')
-depends=('kconfig' 'kcoreaddons' 'kiconthemes' 'ki18n' 'kio' 'solid' 'yaml-cpp' 'kpmcore'
-         'boost-libs' 'qt5-svg' 'polkit-qt5' 'gtk-update-icon-cache' 'plasma-framework'
-         'qt5-xmlpatterns' 'squashfs-tools') # 'pythonqt>=3.2')
+depends=('kconfig' 'kcoreaddons' 'kiconthemes' 'ki18n' 'kio' 'solid' 'yaml-cpp' 'kpmcore>=4.2.0' 'mkinitcpio-openswap'
+         'boost-libs' 'ckbcomp' 'hwinfo' 'qt5-svg' 'polkit-qt5' 'gtk-update-icon-cache' 'plasma-framework'
+         'qt5-xmlpatterns' 'squashfs-tools' 'libpwquality' 'efibootmgr' 'icu')
+conflicts=()
 makedepends=('extra-cmake-modules' 'qt5-tools' 'qt5-translations' 'git' 'boost')
 backup=('usr/share/calamares/modules/bootloader.conf'
         'usr/share/calamares/modules/displaymanager.conf'
         'usr/share/calamares/modules/initcpio.conf'
         'usr/share/calamares/modules/unpackfs.conf')
-source+=("git+$url.git")
-sha256sums=('SKIP')
+
+source=("$_pkgname-$pkgver::$url/download/v$pkgver/$_pkgname-$pkgver.tar.gz"
+	"49-nopasswd-calamares.rules")
+
+sha256sums=('55adef250613e80a868f2aa3d1e57bdae5b769387d91decf0fe2b64e3605574f'
+            '56d85ff6bf860b9559b8c9f997ad9b1002f3fccc782073760eca505e3bddd176')
+
+pkgver() {
+	cd ${srcdir}/$_pkgname-$pkgver
+	_ver="$(cat CMakeLists.txt | grep -m3 -e "  VERSION" | grep -o "[[:digit:]]*" | xargs | sed s'/ /./g')"
+#	_git=".r$(git rev-list --count HEAD).$(git rev-parse --short HEAD)"
+	printf '%s%s' "${_ver}" #"${_git}"
+}
 
 prepare() {
-	cd ${srcdir}/calamares
-	sed -i -e 's/"Install configuration files" OFF/"Install configuration files" ON/' CMakeLists.txt
 
-	# patches here
+	sed -i -e 's/"Install configuration files" OFF/"Install configuration files" ON/' "$srcdir/${_pkgname}-${pkgver}/CMakeLists.txt"
+	sed -i -e 's/# DEBUG_FILESYSTEMS/DEBUG_FILESYSTEMS/' "$srcdir/${_pkgname}-${pkgver}/CMakeLists.txt"
+	sed -i -e "s/desired_size = 512 \* 1024 \* 1024  \# 512MiB/desired_size = 512 \* 1024 \* 1024 \* 4  \# 2048MiB/" "$srcdir/${_pkgname}-${pkgver}/src/modules/fstab/main.py"
 
-	# change version
-	_ver="$(cat CMakeLists.txt | grep -m3 -e "  VERSION" | grep -o "[[:digit:]]*" | xargs | sed s'/ /./g')"
-	printf 'Version: %s-%s' "${_ver}" "${pkgrel}"
-	sed -i -e "s|\${CALAMARES_VERSION_MAJOR}.\${CALAMARES_VERSION_MINOR}.\${CALAMARES_VERSION_PATCH}|${_ver}-${pkgrel}|g" CMakeLists.txt
-	sed -i -e "s|CALAMARES_VERSION_RC 1|CALAMARES_VERSION_RC 0|g" CMakeLists.txt
+	# modify desktop file
+	sed -i -e 's#Exec=sh.*#Exec=sh -c "/etc/calamares/launch.sh"#g' "$srcdir/${_pkgname}-${pkgver}/calamares.desktop"
+	sed -i -e 's#Name=.*#Name=Install Archcraft#g' "$srcdir/${_pkgname}-${pkgver}/calamares.desktop"
+	sed -i -e 's#GenericName=.*#GenericName=System Installer#g' "$srcdir/${_pkgname}-${pkgver}/calamares.desktop"
+	sed -i -e 's#Icon=.*#Icon=archcraft-green#g' "$srcdir/${_pkgname}-${pkgver}/calamares.desktop"
+	sed -i -e 's#Comment=.*#Comment=Archcraft System Installer#g' "$srcdir/${_pkgname}-${pkgver}/calamares.desktop"
 
-	# change branding
-	sed -i -e "s/default/cleanjaro/g" src/branding/CMakeLists.txt
+	# add pkgrelease to patch-version
+	cd ${_pkgname}-${pkgver}
+	_patchver="$(cat CMakeLists.txt | grep -m3 -e CALAMARES_VERSION_PATCH | grep -o "[[:digit:]]*" | xargs)"
+	sed -i -e "s|CALAMARES_VERSION_PATCH $_patchver|CALAMARES_VERSION_PATCH $_patchver-$pkgrel|g" CMakeLists.txt
+
 }
 
 build() {
-	cd ${srcdir}/calamares
+	cd $_pkgname-$pkgver
 
 	mkdir -p build
 	cd build
-        cmake .. \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_INSTALL_PREFIX=/usr \
-              -DCMAKE_INSTALL_LIBDIR=lib \
-              -DWITH_PYTHONQT:BOOL=ON \
-              -DBoost_NO_BOOST_CMAKE=ON \
-              -DSKIP_MODULES="tracking webview interactiveterminal \
-                              dracut dracutlukscfg \
-                              dummyprocess dummypython dummycpp \
-                              dummypythonqt services-openrc"
-        make
+	cmake .. \
+	-DCMAKE_BUILD_TYPE=Release \
+	-DCMAKE_INSTALL_PREFIX=/usr \
+	-DCMAKE_INSTALL_LIBDIR=lib \
+	-DWITH_PYTHONQT=OFF \
+	-DWITH_KF5DBus=OFF \
+	-DBoost_NO_BOOST_CMAKE=ON \
+	-DWEBVIEW_FORCE_WEBKIT=OFF \
+	-DSKIP_MODULES="webview tracking interactiveterminal initramfs \
+	initramfscfg dracut dracutlukscfg \
+	dummyprocess dummypython dummycpp \
+	dummypythonqt services-openrc \
+	keyboardq localeq welcomeq"
+	make
 }
 
 package() {
-	cd ${srcdir}/calamares/build
+	cd ${_pkgname}-${pkgver}/build
 	make DESTDIR="$pkgdir" install
-#    	install -Dm644 "../data/install-icon.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/calamares.svg"
-#	install -Dm644 "../data/calamares.desktop" "$pkgdir/usr/share/applications/calamares.desktop"
-#	install -Dm755 "../data/calamares_polkit" "$pkgdir/usr/bin/calamares_polkit"
-#	install -Dm644 "../data/49-nopasswd-calamares.rules" "$pkgdir/etc/polkit-1/rules.d/49-nopasswd-calamares.rules"
-#	chmod 750      "$pkgdir"/etc/polkit-1/rules.d
-
-	# rename services-systemd back to services
-	mv "$pkgdir/usr/lib/calamares/modules/services-systemd" "$pkgdir/usr/lib/calamares/modules/services"
-	mv "$pkgdir/usr/share/calamares/modules/services-systemd.conf" "$pkgdir/usr/share/calamares/modules/services.conf"
-	sed -i -e 's/-systemd//' "$pkgdir/usr/lib/calamares/modules/services/module.desc"
-	sed -i -e 's/-systemd//' "$pkgdir/usr/share/calamares/settings.conf"
+	install -Dm644 "${srcdir}/49-nopasswd-calamares.rules" "$pkgdir/etc/polkit-1/rules.d/49-nopasswd-calamares.rules"
+	chmod 750 "$pkgdir"/etc/polkit-1/rules.d
 }
